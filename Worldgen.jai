@@ -41,13 +41,13 @@ render :: (using road: *Road) {
         DrawLine3D(p+offset, p-offset, GREEN);
     }*/
     DrawLine3D(start+offset, end+offset, MAGENTA);
-    DrawLine3D(start-offset, end-offset, MAGENTA);
+    DrawLine3D(start-offset, end-offset, PINK);
 }
 
 render_2d :: (using road: *Road) {
     midpoint := ((start + end) * 0.5) + .{0, 0.25, 0};
     cstr := tcprint("%", id);
-    pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1);
+    pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
     DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, RED);
 }
 
@@ -60,23 +60,47 @@ Block :: struct {
 }
 
 render_2d :: (using block: *Block) {
-    offset_centroid := road_centroid + .{0, 0.25, 0};
-    cstr := tcprint("%", id);
-    pos := GetWorldToScreen(offset_centroid, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1);
-    DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
+    {
+        offset_centroid := road_centroid + .{0, 0.25, 0};
+        cstr := tcprint("%", id);
+        pos := GetWorldToScreen(offset_centroid, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
+        DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
+    }
+    for roads {
+        using it;
+        theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
+        offset := xyz(cos(theta)*(width/2), 0, sin(theta)*(width/2));
+        //road_vec := end-start;
+        {
+            midpoint := ((start+offset + end+offset) * 0.5) + .{0, 0.25, 0};
+            road_vec := end+offset - start+offset;
+            result := distance(midpoint, road_centroid); //dot(road_vec, road_centroid);
+            cstr := tcprint("%", result);
+            pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
+            color := ifx result > 0 then LIME else DARKGREEN;
+            DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
+        }
+        {
+            midpoint := ((start-offset + end-offset) * 0.5) + .{0, 0.25, 0};
+            road_vec := end-offset - start-offset;
+            result := distance(midpoint, road_centroid); //dot(road_vec, road_centroid);
+            cstr := tcprint("%", result);
+            pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
+            color := ifx result > 0 then LIME else DARKGREEN;
+            DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
+        }
+    }
 }
 
 calculate_road_centroid :: (using block: *Block) {
     signed_area := 0.0;
-    current: Vector2;
-    next: Vector2;
     centroid_2d: Vector2;
     partial_signed_area := 0.0;
     for 0..road_vertices.count-1 {
         v := road_vertices[it];
         n := road_vertices[(it+1) % road_vertices.count];
-        current = xy(v.x, v.z);
-        next = xy(n.x, n.z);
+        current := xy(v.x, v.z);
+        next := xy(n.x, n.z);
         partial_signed_area = current.x*next.y - next.x*current.y;
         signed_area += partial_signed_area;
         centroid_2d += (current+next) * partial_signed_area;

@@ -21,6 +21,7 @@ game_loop :: inline () {
     //DrawGrid(20, 1);
 
     for * roads render(it);
+    for * blocks render(it);
     //for * buildings render(it);
 
     EndMode3D();
@@ -50,6 +51,5 @@ game_reset :: () {
         up = .{0, 1, 0};
         fovy = 45;
         projection = xx CameraProjection.PERSPECTIVE;
-        //SetCameraMode(game.camera, xx CameraMode.ORBITAL);
     }
 }

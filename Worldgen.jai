@@ -40,7 +40,7 @@ render :: (using road: *Road) {
         p := lerp(start, end, cast(float) it / cast(float) length);
         DrawLine3D(p+offset, p-offset, GREEN);
     }*/
-    DrawLine3D(start+offset, end+offset, MAGENTA);
+    DrawLine3D(start+offset, end+offset, PINK);
     DrawLine3D(start-offset, end-offset, PINK);
 }
 
@@ -53,6 +53,7 @@ render_2d :: (using road: *Road) {
 
 Block :: struct {
     id:             int;
+    type:           enum { RESIDENTIAL; COMMERCIAL; INDUSTRIAL; }
     roads:          [..] *Road;
     road_vertices:  [..] Vector3;
     vertices:       [..] Vector3;
@@ -66,24 +67,29 @@ render :: (using block: *Block) {
     for 0..vertices.count-1 {
         start := vertices[it];
         end := vertices[(it+1) % vertices.count];
-        offset := Vector3.{0, 0.1, 0};
-        DrawLine3D(start+offset, end+offset, SKYBLUE);
+        offset_bottom := Vector3.{0, 0, 0};
+        offset_top := Vector3.{0, 4, 0};
+        color := get_block_color(block);
+        DrawLine3D(start+offset_bottom, end+offset_bottom, color);
+        DrawLine3D(start+offset_top, end+offset_top, color);
+        DrawLine3D(start+offset_bottom, start+offset_top, color);
     }
 }
 
 render_2d :: (using block: *Block) {
+    color := get_block_color(block);
     {
-        offset_centroid := centroid + .{0, 0.25, 0};
+        offset_centroid := centroid + .{0, 2, 0};
         cstr := tcprint("%", id);
         pos := GetWorldToScreen(offset_centroid, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
-        DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
+        DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
     }
-    {
+    /*{
         offset_centroid := road_centroid + .{0, 0.25, 0};
         cstr := tcprint("%", id);
         pos := GetWorldToScreen(offset_centroid, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
         DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, DARKGREEN);
-    }
+    }*/
     /*for roads {
         using it;
         theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
@@ -108,6 +114,14 @@ render_2d :: (using block: *Block) {
             DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
         }
     }*/
+}
+
+get_block_color :: (using block: *Block) -> Color {
+    if #complete type == {
+        case .RESIDENTIAL; return LIME;
+        case .COMMERCIAL;  return BLUE;
+        case .INDUSTRIAL;  return YELLOW;
+    }
 }
 
 do_block_calculations :: (using block: *Block) {
@@ -229,9 +243,12 @@ render :: (using building: *Building) {
 generate_world :: () {
     first_road: *Road;
     last_road: *Road;
+    comm_road1: *Road;
+    comm_road2: *Road;
     {
         block: Block;
         block.id = 0;
+        block.type = .RESIDENTIAL;
         {
             r: Road;
             r.start = .{0, 0, 0};
@@ -239,6 +256,7 @@ generate_world :: () {
             r.width = 4;
             last_road = spawn(r);
             first_road = last_road;
+            comm_road1 = last_road;
             array_add(*block.roads, last_road);
             array_add(*block.road_vertices, last_road.end);
         }
@@ -272,11 +290,13 @@ generate_world :: () {
     {
         block: Block;
         block.id = 1;
+        block.type = .INDUSTRIAL;
         {
             r: Road;
             r.end = .{10, 0, 0};
             r.width = 2;
             last_road = spawn_at_end(r, last_road);
+            comm_road2 = last_road;
             array_add(*block.roads, last_road);
             array_add(*block.road_vertices, last_road.end);
         }
@@ -288,14 +308,14 @@ generate_world :: () {
             array_add(*block.roads, last_road);
             array_add(*block.road_vertices, last_road.end);
         }
-        {
+        /*{
             r: Road;
             r.end = .{0, 0, 10};
             r.width = 2;
             last_road = spawn_at_end(r, last_road);
             array_add(*block.roads, last_road);
             array_add(*block.road_vertices, last_road.end);
-        }
+        }*/
         {
             r: Road;
             r.end = .{0, 0, 0};
@@ -307,6 +327,25 @@ generate_world :: () {
         do_block_calculations(*block);
         array_add(*blocks, block);
     }
+    /*{
+        block: Block;
+        block.id = 2;
+        block.type = .COMMERCIAL;
+        array_add(*block.roads, comm_road1);
+        array_add(*block.road_vertices, comm_road1.end);
+        array_add(*block.roads, comm_road2);
+        array_add(*block.road_vertices, comm_road2.end);
+        {
+            r: Road;
+            r.end = .{10, 0, 0};
+            r.width = 2;
+            last_road = spawn_at_end(r, first_road);
+            array_add(*block.roads, last_road);
+            array_add(*block.road_vertices, last_road.end);
+        }
+        do_block_calculations(*block);
+        array_add(*blocks, block);
+    }*/
 
     print("\nROADS\n-----\n");
     for roads {

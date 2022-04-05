@@ -1,3 +1,47 @@
+Road_Node :: struct {
+    id: int;
+    position: Vector3;
+    connections: [..] Road_Connection;
+}
+road_nodes: Bucket_Array(Road_Node, 1000, true);
+spawn :: (using node: Road_Node) -> *Road_Node {
+    new_node := node;
+    new_node.id = road_nodes.count;
+    spawned := bucket_array_find_pointer(*road_nodes, bucket_array_add(*road_nodes, new_node));
+    return spawned;
+}
+render :: (using node: *Road_Node) {
+    DrawCircle3D(position, 0.5, .{1,0,0}, 90, GREEN);
+    for connections {
+        DrawLine3D(position, it.to.position, DARKGREEN);
+    }
+}
+connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
+    if from == to then return false;
+    conn_from: Road_Connection;
+    conn_from.to = to;
+    conn_to: Road_Connection;
+    conn_to.to = from;
+    for from.connections if it == conn_from then return false;
+    for to.connections if it == conn_to then return false;
+    array_add(*from.connections, conn_from);
+    array_add(*to.connections, conn_to);
+    return true;
+}
+
+Road_Connection :: struct {
+    to: *Road_Node;
+    road: *Road;
+}
+operator == :: (a: Road_Connection, b: Road_Connection) -> bool {
+    return a.to == b.to && a.road == b.road;
+}
+
+
+
+
+
+
 Road :: struct {
     id: int;
     start: Vector3;

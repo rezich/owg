@@ -7,14 +7,16 @@ road_nodes: Bucket_Array(Road_Node, 1000, true);
 spawn :: (using node: Road_Node) -> *Road_Node {
     new_node := node;
     new_node.id = road_nodes.count;
-    spawned := bucket_array_find_pointer(*road_nodes, bucket_array_add(*road_nodes, new_node));
-    return spawned;
+    return bucket_array_find_pointer(*road_nodes, bucket_array_add(*road_nodes, new_node));
 }
 render :: (using node: *Road_Node) {
-    DrawCircle3D(position, 0.5, .{1,0,0}, 90, GREEN);
-    for connections {
-        DrawLine3D(position, it.to.position, DARKGREEN);
-    }
+    DrawCircle3D(position, 0.5, .{1,0,0}, 90, DARKGREEN);
+}
+render_2d :: (using node: *Road_Node) {
+    offset_position := position + .{0, 0.25, 0};
+    cstr := tcprint("%", id);
+    pos := GetWorldToScreen(offset_position, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
+    DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
 }
 connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     if from == to then return false;
@@ -24,8 +26,87 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     conn_to.to = from;
     for from.connections if it == conn_from then return false;
     for to.connections if it == conn_to then return false;
+    road: Road;
+    road.start = to.position;
+    road.end = from.position;
+    road.width = 2;
+    spawned_road := spawn(road);
+    conn_from.road, conn_to.road = spawned_road;
     array_add(*from.connections, conn_from);
     array_add(*to.connections, conn_to);
+
+
+
+
+    // now let's see if we need to make a Block (MCB)
+    Node_Path :: [..] *Road_Node;
+    checked_ids: [..] int;
+    queue: [..] Node_Path;
+    found_block := false;
+    found_path: Node_Path;
+    {
+        path: Node_Path;
+        array_add(*path, from);
+        array_add(*queue, path);
+    }
+    while queue.count > 0 && found_path.count == 0 {
+        v_path := array_copy(queue[0]);
+        array_free(queue[0]);
+        array_unordered_remove_by_index(*queue, 0);
+        v := peek(v_path);
+        for v.connections {
+            w := it.to;
+            if w == from && v_path.count > 2 {
+                array_copy(*found_path, v_path);
+                break;
+            }
+            in_v_path, _ := array_find(v_path, w);
+            if !in_v_path {
+                path: Node_Path;
+                for v_path array_add(*path, it);
+                array_add(*path, w);
+                array_add(*queue, path);
+            }
+        }
+        array_free(v_path);
+    }
+    for queue array_free(it);
+    array_free(queue);
+    if found_path.count > 0 {
+        log("FOUND BLOCK");
+        block: Block;
+        block.height = 4;
+        for 0..found_path.count-1 {
+            node := found_path[it];
+            next_node := found_path[(it+1) % found_path.count];
+            for node.connections {
+                if it.to.id == next_node.id {
+                    array_add(*block.roads, it.road);
+                    break;
+                }
+                array_add(*block.road_vertices, node.position);
+            }
+        }
+        do_block_calculations(*block);
+        array_add(*blocks, block);
+    }
+    array_free(found_path);
+
+
+
+
+    return true;
+}
+reposition_road_node :: (using node: *Road_Node, new_position: Vector3) -> bool {
+    for connections {
+        if it.road.start == position then it.road.start = new_position;
+        else it.road.end = new_position;
+    }
+    position = new_position;
+    return true;
+}
+delete_road_node :: (using node: *Road_Node) -> bool {
+    //TODO
     return true;
 }
 
@@ -37,17 +118,12 @@ operator == :: (a: Road_Connection, b: Road_Connection) -> bool {
     return a.to == b.to && a.road == b.road;
 }
 
-
-
-
-
-
 Road :: struct {
     id: int;
     start: Vector3;
     end: Vector3;
     width: float;
-    end_connections: [..] *Road;
+    display_width: float;
     //mesh: Mesh;
     //model: Model;
 }
@@ -57,20 +133,17 @@ roads: Bucket_Array(Road, 1000, true);
 spawn :: (using road: Road) -> *Road {
     new_road := road;
     new_road.id = roads.count;
-    loc := bucket_array_add(*roads, new_road);
-    spawned := bucket_array_find_pointer(*roads, loc);
-    for roads {
-        if it == spawned then continue;
-        if spawned.end == it.start then array_add(*spawned.end_connections, it);
-        if spawned.start == it.end then array_add(*it.end_connections, spawned);
-    }
-    return spawned;
+    return bucket_array_find_pointer(*roads, bucket_array_add(*roads, new_road));
 }
 
-spawn_at_end :: (using road: Road, previous: *Road) -> *Road {
+/*spawn_at_end :: (using road: Road, previous: *Road) -> *Road {
     new_road := road;
     new_road.start = previous.end;
     return spawn(new_road);
+}*/
+
+simulate :: (using road: *Road, dt: float) {
+    display_width = lerp(display_width, width, 10*dt);
 }
 
 render :: (using road: *Road) {
@@ -78,11 +151,11 @@ render :: (using road: *Road) {
 
     length := cast(int) floor(distance(xy(start.x, start.z), xy(end.x, end.z)));
     theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
-    offset := xyz(cos(theta)*(width/2), 0, sin(theta)*(width/2));
+    offset := xyz(cos(theta)*(display_width/2), 0, sin(theta)*(display_width/2));
     /*for 0..length
     {
         p := lerp(start, end, cast(float) it / cast(float) length);
-        DrawLine3D(p+offset, p-offset, GREEN);
+        DrawLine3D(p+offset, p-offset, MAGENTA);
     }*/
     DrawLine3D(start+offset, end+offset, PINK);
     DrawLine3D(start-offset, end-offset, PINK);
@@ -103,16 +176,22 @@ Block :: struct {
     vertices:       [..] Vector3;
     road_centroid:  Vector3;
     centroid:       Vector3;
+    height: float;
+    display_height: float;
 }
 
 blocks: [..] Block;
+
+simulate :: (using block: *Block, dt: float) {
+    display_height = lerp(display_height, height, 10*dt);
+}
 
 render :: (using block: *Block) {
     for 0..vertices.count-1 {
         start := vertices[it];
         end := vertices[(it+1) % vertices.count];
         offset_bottom := Vector3.{0, 0, 0};
-        offset_top := Vector3.{0, 4, 0};
+        offset_top := xyz(0, display_height, 0);
         color := get_block_color(block);
         DrawLine3D(start+offset_bottom, end+offset_bottom, color);
         DrawLine3D(start+offset_top, end+offset_top, color);
@@ -284,136 +363,11 @@ render :: (using building: *Building) {
     DrawCubeWiresV(position, dimensions, BLUE);
 }*/
 
-generate_world :: () {
-    first_road: *Road;
-    last_road: *Road;
-    comm_road1: *Road;
-    comm_road2: *Road;
-    {
-        block: Block;
-        block.id = 0;
-        block.type = .RESIDENTIAL;
-        {
-            r: Road;
-            r.start = .{0, 0, 0};
-            r.end = .{0, 0, -10};
-            r.width = 4;
-            last_road = spawn(r);
-            first_road = last_road;
-            comm_road1 = last_road;
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        {
-            r: Road;
-            r.end = .{-10, 0, -10};
-            r.width = 2;
-            last_road = spawn_at_end(r, last_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        {
-            r: Road;
-            r.end = .{-10, 0, 0};
-            r.width = 2;
-            last_road = spawn_at_end(r, last_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        {
-            r: Road;
-            r.end = .{0, 0, 0};
-            r.width = 2;
-            last_road = spawn_at_end(r, last_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        do_block_calculations(*block);
-        array_add(*blocks, block);
-    }
-    {
-        block: Block;
-        block.id = 1;
-        block.type = .INDUSTRIAL;
-        {
-            r: Road;
-            r.end = .{10, 0, 0};
-            r.width = 2;
-            last_road = spawn_at_end(r, last_road);
-            comm_road2 = last_road;
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        {
-            r: Road;
-            r.end = .{10, 0, 10};
-            r.width = 2;
-            last_road = spawn_at_end(r, last_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        /*{
-            r: Road;
-            r.end = .{0, 0, 10};
-            r.width = 2;
-            last_road = spawn_at_end(r, last_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }*/
-        {
-            r: Road;
-            r.end = .{0, 0, 0};
-            r.width = 4;
-            last_road = spawn_at_end(r, last_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        do_block_calculations(*block);
-        array_add(*blocks, block);
-    }
-    /*{
-        block: Block;
-        block.id = 2;
-        block.type = .COMMERCIAL;
-        array_add(*block.roads, comm_road1);
-        array_add(*block.road_vertices, comm_road1.end);
-        array_add(*block.roads, comm_road2);
-        array_add(*block.road_vertices, comm_road2.end);
-        {
-            r: Road;
-            r.end = .{10, 0, 0};
-            r.width = 2;
-            last_road = spawn_at_end(r, first_road);
-            array_add(*block.roads, last_road);
-            array_add(*block.road_vertices, last_road.end);
-        }
-        do_block_calculations(*block);
-        array_add(*blocks, block);
-    }*/
+/*generate_world :: () {
+}*/
 
-    print("\nROADS\n-----\n");
-    for roads {
-        sb: String_Builder; init_string_builder(*sb); defer free_buffers(*sb);
-        for it.end_connections print_to_builder(*sb, "    Road #%\n", it.id);
-        print("Road #%\n  start: %\n  end:   %\n  width: %\n  end_connections:\n%\n", it.id, it.start, it.end, it.width, builder_to_string(*sb));
-    }
-
-    print("\nBLOCKS\n------\n");
-    for blocks {
-        sb1: String_Builder; init_string_builder(*sb1); defer free_buffers(*sb1);
-        sb2: String_Builder; init_string_builder(*sb2); defer free_buffers(*sb2);
-        sb3: String_Builder; init_string_builder(*sb3); defer free_buffers(*sb3);
-        for it.roads print_to_builder(*sb1, "    Road #%\n", it.id);
-        for it.road_vertices print_to_builder(*sb2, "    %\n", it);
-        for it.vertices print_to_builder(*sb3, "    %\n", it);
-        print("Block #%\n  road_centroid: %\n  roads:\n%  road_vertices:\n%  vertices:\n%", it.id, it.road_centroid, builder_to_string(*sb1), builder_to_string(*sb2), builder_to_string(*sb3));
-    }
-
-    /*{
-        b: Building;
-        b.position = .{7.5, 5, 8};
-        b.dimensions = .{5, 5, 5};
-        spawn(b);
-    }*/
-    
-}
+/*******************************************************************************
+TODO:
+    - ignore MCB for blocks that exist(!!)
+    - probably reorder vertices for blocks
+*******************************************************************************/

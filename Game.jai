@@ -7,9 +7,9 @@ game: struct {
         SPAWN_ROAD_NODE;
         CONNECT_ROAD_NODE_FROM;
         CONNECT_ROAD_NODE_TO;
+        REPOSITION_ROAD_NODE;
     };
-    road_node_from: *Road_Node;
-    road_node_to: *Road_Node;
+    selected_road_node: *Road_Node;
 }
 
 game_loop :: inline () {
@@ -20,6 +20,9 @@ game_loop :: inline () {
     // simulate
     handle_input();
     UpdateCamera(*game.camera);
+
+    for * roads simulate(it, dt);
+    for * blocks simulate(it, dt);
 
 
     // draw
@@ -39,8 +42,10 @@ game_loop :: inline () {
 
     for * roads  render_2d(it);
     for * blocks render_2d(it);
+    for * road_nodes render_2d(it);
 
-    DrawFPS(0, 0);
+    //DrawFPS(0, 0);
+    DrawTextEx(the_font, tcprint("%", game.mode), .{2,0}, xx (the_font.baseSize*2), 1, RAYWHITE);
 
     EndDrawing();
 
@@ -54,6 +59,8 @@ game_reset :: () {
     log("RESETTING GAME");
     reset_entity_storage();
     game = .{};
+    bucket_array_reset(*roads);
+    bucket_array_reset(*road_nodes);
     //generate_world();
     {
         using game.camera;
@@ -95,12 +102,12 @@ draw_cursor :: () {
                 }
             }
         case .CONNECT_ROAD_NODE_TO;
-            DrawCircle3D(game.road_node_from.position, 0.6, .{1,0,0}, 90, YELLOW);
+            DrawCircle3D(game.selected_road_node.position, 0.6, .{1,0,0}, 90, YELLOW);
             collision := get_3d_cursor_collision();
             if collision.hit {
-                DrawLine3D(game.road_node_from.position, collision.point, YELLOW);
+                DrawLine3D(game.selected_road_node.position, collision.point, YELLOW);
                 for * road_nodes {
-                    if it == game.road_node_from then continue;
+                    if it == game.selected_road_node then continue;
                     collision = GetRayCollisionQuad(
                         GetMouseRay(GetMousePosition(), game.camera),
                         it.position + Vector3.{-0.5,0,-0.5},

@@ -61,6 +61,7 @@ game_reset :: () {
     game = .{};
     bucket_array_reset(*roads);
     bucket_array_reset(*road_nodes);
+    bucket_array_reset(*blocks);
     //generate_world();
     {
         using game.camera;

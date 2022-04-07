@@ -1,6 +1,6 @@
 Block :: struct {
     id:             int;
-    type:           enum { RESIDENTIAL; COMMERCIAL; INDUSTRIAL; }
+    type:           Block_Type;
     //roads:          [..] *Road;
     road_nodes:     [..] *Road_Node;
     //road_vertices:  [..] Vector3;
@@ -11,6 +11,7 @@ Block :: struct {
     display_height: float;
 }
 blocks: Bucket_Array(Block, 1000, true);
+Block_Type :: enum { RESIDENTIAL; COMMERCIAL; INDUSTRIAL; }
 
 spawn :: (using block: Block) -> *Block {
     new_block := block;
@@ -128,8 +129,18 @@ seg :: make_line_segment;
 
 //TODO: make this work in all cases instead of just the naive ones
 calculate_inner_polygon :: (using block: *Block) {
-    segs: [..] Line_Segment;
-    for roads {
+    segs: [..] Line_Segment; defer array_free(segs);
+    connected_roads: [..] *Road; defer array_free(connected_roads);
+    for 0..road_nodes.count-1 {
+        node := road_nodes[it];
+        next_node := road_nodes[(it+1) % road_nodes.count];
+        for node.connections {
+            if it.to.id == next_node.id {
+                array_add(*connected_roads, it.road);
+            }
+        }
+    }
+    for connected_roads {
         using it;
         theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
         offset := xyz(cos(theta)*(width/2), 0, sin(theta)*(width/2));

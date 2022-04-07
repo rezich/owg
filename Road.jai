@@ -21,7 +21,7 @@ simulate :: (using road: *Road, dt: float) {
 }
 
 render :: (using road: *Road) {
-    DrawLine3D(start, end, RED);
+    DrawLine3D(start, end, GRAY);
 
     length := cast(int) floor(distance(xy(start.x, start.z), xy(end.x, end.z)));
     theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
@@ -31,8 +31,8 @@ render :: (using road: *Road) {
         p := lerp(start, end, cast(float) it / cast(float) length);
         DrawLine3D(p+offset, p-offset, MAGENTA);
     }*/
-    DrawLine3D(start+offset, end+offset, PINK);
-    DrawLine3D(start-offset, end-offset, PINK);
+    DrawLine3D(start+offset, end+offset, DARKGRAY);
+    DrawLine3D(start-offset, end-offset, DARKGRAY);
 }
 
 render_2d :: (using road: *Road) {

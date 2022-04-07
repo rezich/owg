@@ -1,6 +1,9 @@
+WINDOW_WIDTH  :: 800;
+WINDOW_HEIGHT :: 600;
+
 main :: () {
     window_title := to_c_string("owg");
-    InitWindow(800, 600, window_title);
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, window_title);
     SetTargetFPS(60);
     SetMouseCursor(xx MouseCursor.CROSSHAIR);
     the_font = LoadFont(tcprint("assets/font/mecha.png"));

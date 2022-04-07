@@ -30,7 +30,7 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     road: Road;
     road.start = to.position;
     road.end = from.position;
-    road.width = 2;
+    road.width = 1;
     spawned_road := spawn(road);
     conn_from.road, conn_to.road = spawned_road;
     array_add(*from.connections, conn_from);
@@ -48,6 +48,7 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     {
         path: Node_Path;
         array_add(*path, from);
+        array_add(*path, to);
         array_add(*queue, path);
     }
     while queue.count > 0 && found_path.count == 0 {
@@ -57,9 +58,9 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
         v := peek(v_path);
         for v.connections {
             w := it.to;
-            if w == from && v_path.count > 2 {
+            if w == from && v_path.count > 2 && w != v_path[v_path.count-2] && (found_path.count == 0 || v_path.count < found_path.count) {
                 array_copy(*found_path, v_path);
-                break;
+                continue;
             }
             in_v_path, _ := array_find(v_path, w);
             if !in_v_path {
@@ -90,15 +91,29 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
                     break;
                 }
             }
-            block_matches := true;
-            for 0..block.road_nodes.count-1 {
-                node := block.road_nodes[(start+it) % block.road_nodes.count];
-                if found_path[it] != node {
-                    block_matches = false;
-                    break;
+            block_matches := false;
+            block_matches_reverse := false;
+            if found_start {
+                block_matches = true;
+                block_matches_reverse = true;
+                for 0..block.road_nodes.count-1 {
+                    node := block.road_nodes[(start+it) % block.road_nodes.count];
+                    if found_path[it] != node {
+                        block_matches = false;
+                        break;
+                    }
+                }
+                for 0..block.road_nodes.count-1 {
+                    reverse_index := (start-it) % block.road_nodes.count;
+                    if reverse_index < 0 then reverse_index += block.road_nodes.count;
+                    node := block.road_nodes[reverse_index];
+                    if found_path[it] != node {
+                        block_matches_reverse = false;
+                        break;
+                    }
                 }
             }
-            if block_matches {
+            if block_matches || block_matches_reverse {
                 log("whoops, nevermind, existing similar block found");
                 found_block = true;
                 break;
@@ -106,26 +121,56 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
         }
 
         if !found_block {
-            log("adding block");
-            block: Block;
-            block.height = TEMP_BLOCK_HEIGHT;
-            if blocks.count > 0 then block.type = .INDUSTRIAL; //TEMP
-            for 0..found_path.count-1 {
-                node := found_path[it];
-                /*next_node := found_path[(it+1) % found_path.count];
-                for node.connections {
-                    if it.to.id == next_node.id {
-                        array_add(*block.roads, it.road);
-                        break;
+            new_block_contains_another_block := false;
+            for block: blocks {
+                inside := false;
+                for 0..found_path.count-1 {
+                    node := found_path[it];
+                    next := found_path[(it+1) % found_path.count];
+                    x := block.centroid.x; y := block.centroid.z;
+                    xi := node.position.x; yi := node.position.z;
+                    xj := next.position.x; yj := node.position.z;
+                    intersect := ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                    if intersect then {
+                        ANY_INTERSECTION_FAILS :: true;
+                        #if ANY_INTERSECTION_FAILS {
+                            inside = true;
+                            break;
+                        }
+                        else inside = !inside;
+                        
                     }
-                    array_add(*block.road_vertices, node.position);
-                }*/
-                array_add(*block.road_nodes, node);
+                }
+                if inside {
+                    new_block_contains_another_block = true;
+                    break;
+                }
             }
-            do_block_calculations(*block);
-            added_block := spawn(block);
-            for found_path array_add(*it.connected_blocks, added_block);
-            report_blocks();
+            if new_block_contains_another_block {
+                log("whoops, nevermind, that block contains another block");
+            }
+            else {
+                log("adding block");
+                block: Block;
+                block.height = TEMP_BLOCK_HEIGHT;
+                block.type = cast(Block_Type) (blocks.count % get_enum_count(Block_Type)); //TEMP
+                for 0..found_path.count-1 {
+                    node := found_path[it];
+                    /*next_node := found_path[(it+1) % found_path.count];
+                    for node.connections {
+                        if it.to.id == next_node.id {
+                            array_add(*block.roads, it.road);
+                            break;
+                        }
+                        array_add(*block.road_vertices, node.position);
+                    }*/
+                    array_add(*block.road_nodes, node);
+                }
+                do_block_calculations(*block);
+                added_block := spawn(block);
+                for found_path array_add(*it.connected_blocks, added_block);
+                report_blocks();
+            }
         }
     }
     array_free(found_path);

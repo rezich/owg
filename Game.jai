@@ -27,7 +27,7 @@ game_loop :: inline () {
 
     // draw
     BeginDrawing();
-    ClearBackground(DARKGRAY);
+    ClearBackground(.{24,24,24,255});
     BeginMode3D(game.camera);
     //DrawGrid(20, 1);
 
@@ -44,7 +44,7 @@ game_loop :: inline () {
     for * blocks render_2d(it);
     for * road_nodes render_2d(it);
 
-    //DrawFPS(0, 0);
+    DrawFPS(WINDOW_WIDTH-80, 4);
     DrawTextEx(the_font, tcprint("%", game.mode), .{2,0}, xx (the_font.baseSize*2), 1, RAYWHITE);
 
     EndDrawing();

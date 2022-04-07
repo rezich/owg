@@ -1,11 +1,8 @@
 Block :: struct {
     id:             int;
     type:           Block_Type;
-    //roads:          [..] *Road;
     road_nodes:     [..] *Road_Node;
-    //road_vertices:  [..] Vector3;
     vertices:       [..] Vector3;
-    road_centroid:  Vector3;
     centroid:       Vector3;
     height: float;
     display_height: float;
@@ -44,36 +41,6 @@ render_2d :: (using block: *Block) {
         pos := GetWorldToScreen(offset_centroid, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
         DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
     }
-    /*{
-        offset_centroid := road_centroid + .{0, 0.25, 0};
-        cstr := tcprint("%", id);
-        pos := GetWorldToScreen(offset_centroid, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
-        DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, DARKGREEN);
-    }*/
-    /*for roads {
-        using it;
-        theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
-        offset := xyz(cos(theta)*(width/2), 0, sin(theta)*(width/2));
-        //road_vec := end-start;
-        {
-            midpoint := ((start+offset + end+offset) * 0.5) + .{0, 0.25, 0};
-            road_vec := end+offset - start+offset;
-            result := distance(midpoint, road_centroid); //dot(road_vec, road_centroid);
-            cstr := tcprint("%", result);
-            pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
-            color := ifx result > 0 then LIME else DARKGREEN;
-            DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
-        }
-        {
-            midpoint := ((start-offset + end-offset) * 0.5) + .{0, 0.25, 0};
-            road_vec := end-offset - start-offset;
-            result := distance(midpoint, road_centroid); //dot(road_vec, road_centroid);
-            cstr := tcprint("%", result);
-            pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
-            color := ifx result > 0 then LIME else DARKGREEN;
-            DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, color);
-        }
-    }*/
 }
 
 get_block_color :: (using block: *Block) -> Color {
@@ -85,18 +52,6 @@ get_block_color :: (using block: *Block) -> Color {
 }
 
 do_block_calculations :: (using block: *Block) {
-    road_vertices: [..] Vector3;
-    for 0..road_nodes.count-1 {
-        node := road_nodes[it];
-        next_node := road_nodes[(it+1) % road_nodes.count];
-        for node.connections {
-            if it.to.id == next_node.id {
-                array_add(*road_vertices, node.position);
-                break;
-            }
-        }
-    }
-    road_centroid = calculate_centroid(road_vertices);
     calculate_inner_polygon(block);
     centroid = calculate_centroid(vertices);
 }
@@ -129,13 +84,26 @@ seg :: make_line_segment;
 
 //TODO: make this work in all cases instead of just the naive ones
 calculate_inner_polygon :: (using block: *Block) {
+    array_reset(*vertices);
+    road_vertices: [..] Vector3;
+    for 0..road_nodes.count-1 {
+        node := road_nodes[it];
+        next_node := road_nodes[(it+1) % road_nodes.count];
+        for node.connections {
+            if it.to == next_node {
+                array_add(*road_vertices, node.position);
+                break;
+            }
+        }
+    }
+    road_centroid := calculate_centroid(road_vertices);
     segs: [..] Line_Segment; defer array_free(segs);
     connected_roads: [..] *Road; defer array_free(connected_roads);
     for 0..road_nodes.count-1 {
         node := road_nodes[it];
         next_node := road_nodes[(it+1) % road_nodes.count];
         for node.connections {
-            if it.to.id == next_node.id {
+            if it.to == next_node {
                 array_add(*connected_roads, it.road);
             }
         }
@@ -153,6 +121,7 @@ calculate_inner_polygon :: (using block: *Block) {
             array_add(*segs, seg(start-offset, end-offset));
         }
     }
+    //TODO: replace this with something less ridiculous that only checks connected segments & makes a joint if they don't overlap
     for first_it: 0..segs.count-1 {
         first_seg := segs[first_it];
         for second_it: 0..segs.count-1 {
@@ -177,6 +146,9 @@ calculate_inner_polygon :: (using block: *Block) {
                 if !found {
                     array_add(*vertices, xyz(new_vertex.x, 0, new_vertex.y)); //TODO: 0??
                 }
+            }
+            else {
+                //TODO: concave polygons, somehow
             }
         }
     }

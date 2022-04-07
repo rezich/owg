@@ -186,6 +186,7 @@ reposition_road_node :: (using node: *Road_Node, new_position: Vector3) -> bool 
         else it.road.end = new_position;
     }
     position = new_position;
+    for connected_blocks do_block_calculations(it);
     return true;
 }
 delete_road_node :: (using node: *Road_Node) -> bool {

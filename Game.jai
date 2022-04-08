@@ -59,10 +59,11 @@ game_reset :: () {
     log("RESETTING GAME");
     reset_entity_storage();
     game = .{};
+    SetCameraMode(game.camera, xx CameraMode.CUSTOM);
     bucket_array_reset(*roads);
     bucket_array_reset(*road_nodes);
     bucket_array_reset(*blocks);
-    //generate_world();
+    generate_world();
     {
         using game.camera;
         position = .{20, 15, 20};

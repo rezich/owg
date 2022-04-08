@@ -171,7 +171,7 @@ calculate_inner_polygon :: (using block: *Block) {
                     if first_swap == -1  first_swap = j;
                 }
             }
-            if latest_swap == -1 return;
+            if latest_swap == -1 break;
             last_j = latest_swap - 1;
             first_j = max(first_swap-1, 0);
         }

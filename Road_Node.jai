@@ -13,6 +13,8 @@ spawn :: (using node: Road_Node) -> *Road_Node {
 }
 render :: (using node: *Road_Node) {
     DrawCircle3D(position, 0.5, .{1,0,0}, 90, DARKGREEN);
+    //DrawPoint3D(position, RED);
+    draw_axis(position, DARKGREEN);
 }
 render_2d :: (using node: *Road_Node) {
     offset_position := position + .{0, 0.25, 0};
@@ -29,13 +31,15 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     for from.connections if it == conn_from then return false;
     for to.connections if it == conn_to then return false;
     road: Road;
-    road.start = to.position;
-    road.end = from.position;
+    road.start = from.position;
+    road.end = to.position;
     road.width = 1;
     spawned_road := spawn(road);
     conn_from.road, conn_to.road = spawned_road;
     array_add(*from.connections, conn_from);
     array_add(*to.connections, conn_to);
+    recalculate(to, true);
+    recalculate(from, true);
 
 
 
@@ -187,15 +191,131 @@ reposition_road_node :: (using node: *Road_Node, new_position: Vector3) -> bool 
     prev_position := position;
     position = new_position;
     for connections {
-        if it.road.start == prev_position then recalculate_start(it.road, node);
-        else recalculate_end(it.road, node);
+        if it.road.start == prev_position {
+            it.road.start = position;
+        }
+        else {
+            it.road.end = position;
+        }
     }
-    for connected_blocks do_block_calculations(it);
+    recalculate(node, true);
     return true;
+}
+
+recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
+    // bubble_sort (can't use bubble_sort directly Because No Closures)
+    {
+        count := connections.count;
+        last_j := count-2;
+        first_j := 0;
+        while true {
+            latest_swap := -1;
+            first_swap  := -1;
+            for j : first_j..last_j {
+                a := connections[j];
+                b := connections[j+1];
+                if compare_vertices_rotationally(a.to.position, b.to.position, position) {
+                    connections[j]   = b;
+                    connections[j+1] = a;
+                    latest_swap = j;
+                    if first_swap == -1  first_swap = j;
+                }
+            }
+            if latest_swap == -1 break;
+            last_j = latest_swap - 1;
+            first_j = max(first_swap-1, 0);
+        }
+    }
+    if connections.count == 1 {
+        road := connections[0].road;
+        if road.start == position {
+            array_reset(*road.left_start_vertices);
+            array_reset(*road.right_start_vertices);
+            left := get_right_side(road);
+            array_add(*road.left_start_vertices, left.start);
+            right := get_left_side(road);
+            array_add(*road.right_start_vertices, right.start);
+        }
+        else {
+            array_reset(*road.left_end_vertices);
+            array_reset(*road.right_end_vertices);
+            left := get_right_side(road);
+            array_add(*road.left_end_vertices, left.end);
+            right := get_left_side(road);
+            array_add(*road.right_end_vertices, right.end);
+        }
+    }
+    else for 0..connections.count-1 {
+        road := connections[it].road;
+        left_vertices: *[..] Vector3;
+        right_vertices: *[..] Vector3;
+        conn_left: *Road_Connection;
+        conn_right: *Road_Connection;
+        if road.start == position {
+            left_vertices = *road.left_start_vertices;
+            right_vertices = *road.right_start_vertices;
+            conn_left = *connections[ifx it == connections.count-1 then 0 else it+1];
+            conn_right = *connections[ifx it == 0 then connections.count-1 else it-1];
+        }
+        else {
+            left_vertices = *road.left_end_vertices;
+            right_vertices = *road.right_end_vertices;
+            conn_left = *connections[ifx it == 0 then connections.count-1 else it-1];
+            conn_right = *connections[ifx it == connections.count-1 then 0 else it+1];
+        }
+        array_reset(left_vertices);
+        array_reset(right_vertices);
+        {
+            a := get_right_side_infinity(road);
+            conn := conn_left;
+            b := ifx conn.road.start != road.start && it != 0 then get_right_side_infinity(conn.road) else get_left_side_infinity(conn.road);
+            new_vertex: Vector2;
+            if CheckCollisionLines(
+                xy(a.start.x, a.start.z),
+                xy(a.end.x, a.end.z),
+                xy(b.start.x, b.start.z),
+                xy(b.end.x, b.end.z),
+                *new_vertex
+            ) {
+                array_add(left_vertices, xyz(new_vertex.x, 0, new_vertex.y));
+            }
+        }
+        {
+            a := get_left_side_infinity(road);
+            conn := conn_right;
+            b := ifx conn.road.start != road.start && it != connections.count-1 then get_left_side_infinity(conn.road) else get_right_side_infinity(conn.road);
+            new_vertex: Vector2;
+            if CheckCollisionLines(
+                xy(a.start.x, a.start.z),
+                xy(a.end.x, a.end.z),
+                xy(b.start.x, b.start.z),
+                xy(b.end.x, b.end.z),
+                *new_vertex
+            ) {
+                array_add(right_vertices, xyz(new_vertex.x, 0, new_vertex.y));
+            }
+        }
+    }
+    if recalculate_connected then for connections recalculate(it.to);
+    for connected_blocks do_block_calculations(it);
 }
 delete_road_node :: (using node: *Road_Node) -> bool {
     //TODO
     return true;
+}
+
+// reversed from https://stackoverflow.com/questions/6989100/sort-points-in-clockwise-order
+compare_vertices_rotationally :: (a: Vector3, b: Vector3, center: Vector3) -> bool {
+    if a.x-center.x >= 0 && b.x-center.x < 0 then return false;
+    if a.x-center.x < 0 && b.x-center.x >= 0 then return true;
+    if a.x-center.x == 0 && b.x-center.x == 0 {
+        if a.z-center.z >= 0 || b.z-center.z >= 0 then return a.z<b.z;
+        else return b.z<a.z;
+    }
+    det := (a.x-center.x)*(b.z-center.z) - (b.x-center.x)*(a.z-center.z);
+    if det < 0 then return false;
+    if det > 0 then return true;
+    return (a.x-center.x)*(a.x-center.x)+(a.z-center.z)*(a.z-center.z) < (b.x-center.x)*(b.x-center.x)+(b.z-center.z)*(b.z-center.z);
 }
 
 Road_Connection :: struct {

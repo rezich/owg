@@ -16,3 +16,10 @@ get_enum_count :: ($enum_type : Type) -> s64 {
 get_enum_max :: inline ($enum_type: Type) -> s64 {
     return get_enum_count(enum_type) - 1;
 }
+
+draw_axis :: (position: Vector3, color: Color) {
+    SIZE :: 0.25;
+    DrawLine3D(position-.{SIZE,0,0}, position+.{SIZE,0,0}, color);
+    DrawLine3D(position-.{0,SIZE,0}, position+.{0,SIZE,0}, color);
+    DrawLine3D(position-.{0,0,SIZE}, position+.{0,0,SIZE}, color);
+}

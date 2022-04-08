@@ -274,7 +274,7 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
         {
             conn := ifx flipped then conn_right else conn_left;
             conn_flipped := conn.road.start != position;
-            which := xor(!conn_flipped, flipped);
+            which := !conn_flipped ^ flipped;
             a := get_left_side_infinity(road);
             b := ifx which then get_right_side_infinity(conn.road) else get_left_side_infinity(conn.road);
             new_vertex: Vector2;
@@ -291,7 +291,7 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
         {
             conn := ifx flipped then conn_left else conn_right;
             conn_flipped := conn.road.start != position;
-            which := xor(!conn_flipped, flipped);
+            which := !conn_flipped ^ flipped;
             a := get_right_side_infinity(road);
             b := ifx which then get_left_side_infinity(conn.road) else get_right_side_infinity(conn.road);
             new_vertex: Vector2;

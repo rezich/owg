@@ -4,6 +4,8 @@ Road :: struct {
     end: Vector3;
     width: float;
     display_width: float;
+    left_vertices: [..] Vector3;
+    right_vertices: [..] Vector3;
     //mesh: Mesh;
     //model: Model;
 }
@@ -33,6 +35,7 @@ render :: (using road: *Road) {
     }*/
     DrawLine3D(start+offset, end+offset, DARKGRAY);
     DrawLine3D(start-offset, end-offset, DARKGRAY);
+    //for left_vertices DrawLine3D()
 }
 
 render_2d :: (using road: *Road) {
@@ -41,3 +44,13 @@ render_2d :: (using road: *Road) {
     pos := GetWorldToScreen(midpoint, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
     DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, RED);
 }
+
+recalculate_start :: (using road: *Road, node: *Road_Node) {
+    start = node.position;
+
+}
+recalculate_end :: (using road: *Road, node: *Road_Node) {
+    end = node.position;
+    
+}
+// https://www.codeproject.com/Articles/226569/Drawing-polylines-by-tessellation

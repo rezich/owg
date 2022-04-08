@@ -173,7 +173,7 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
                         }*/
                         array_add(*block.road_nodes, node);
                     }
-                    do_block_calculations(*block);
+                    recalculate(*block);
                     added_block := spawn(block);
                     for found_path array_add(*it.connected_blocks, added_block);
                     report_blocks();
@@ -256,11 +256,9 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
         road := connections[it].road;
         left_vertices: *[..] Vector3;
         right_vertices: *[..] Vector3;
-        conn_left: *Road_Connection;
-        conn_right: *Road_Connection;
+        conn_left := connections[ifx it == 0 then connections.count-1 else it-1];
+        conn_right := connections[ifx it == connections.count-1 then 0 else it+1];
         flipped := road.start != position;
-        conn_left = *connections[ifx it == 0 then connections.count-1 else it-1];
-        conn_right = *connections[ifx it == connections.count-1 then 0 else it+1];
         if !flipped {
             left_vertices = *road.left_start_vertices;
             right_vertices = *road.right_start_vertices;
@@ -274,7 +272,7 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
         {
             conn := ifx flipped then conn_right else conn_left;
             conn_flipped := conn.road.start != position;
-            which := xor(!conn_flipped, flipped);
+            which := !conn_flipped ^ flipped;
             a := get_left_side_infinity(road);
             b := ifx which then get_right_side_infinity(conn.road) else get_left_side_infinity(conn.road);
             new_vertex: Vector2;
@@ -284,14 +282,12 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
                 xy(b.start.x, b.start.z),
                 xy(b.end.x, b.end.z),
                 *new_vertex
-            ) {
-                array_add(left_vertices, xyz(new_vertex.x, 0, new_vertex.y));
-            }
+            ) then array_add(left_vertices, xyz(new_vertex.x, 0, new_vertex.y));
         }
         {
             conn := ifx flipped then conn_left else conn_right;
             conn_flipped := conn.road.start != position;
-            which := xor(!conn_flipped, flipped);
+            which := !conn_flipped ^ flipped;
             a := get_right_side_infinity(road);
             b := ifx which then get_left_side_infinity(conn.road) else get_right_side_infinity(conn.road);
             new_vertex: Vector2;
@@ -301,13 +297,11 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
                 xy(b.start.x, b.start.z),
                 xy(b.end.x, b.end.z),
                 *new_vertex
-            ) {
-                array_add(right_vertices, xyz(new_vertex.x, 0, new_vertex.y));
-            }
+            ) then array_add(right_vertices, xyz(new_vertex.x, 0, new_vertex.y));
         }
     }
     if recalculate_connected then for connections recalculate(it.to);
-    for connected_blocks do_block_calculations(it);
+    for connected_blocks recalculate(it);
 }
 delete_road_node :: (using node: *Road_Node) -> bool {
     //TODO

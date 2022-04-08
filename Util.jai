@@ -23,7 +23,3 @@ draw_axis :: (position: Vector3, color: Color) {
     DrawLine3D(position-.{0,SIZE,0}, position+.{0,SIZE,0}, color);
     DrawLine3D(position-.{0,0,SIZE}, position+.{0,0,SIZE}, color);
 }
-
-xor :: inline (a: bool, b: bool) -> bool {
-    return (a || b) && !(a && b);
-}

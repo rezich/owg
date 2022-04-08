@@ -89,6 +89,7 @@ draw_cursor :: () {
             if collision.hit {
                 DrawCircle3D(collision.point, CURSOR_SIZE, .{1,0,0}, 90, YELLOW);
             }
+        case .REPOSITION_ROAD_NODE; #through;
         case .CONNECT_ROAD_NODE_FROM;
             collision: RayCollision;
             for * road_nodes {

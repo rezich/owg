@@ -18,7 +18,7 @@ render :: (using building: *Building) {
 }*/
 
 generate_world :: () {
-    n0, n1, n2, n3, n4: *Road_Node;
+    /*n0, n1, n2, n3, n4: *Road_Node;
     { node: Road_Node; node.position = .{0,0,0}; n0 = spawn(node); }
     { node: Road_Node; node.position = .{0,0,10}; n1 = spawn(node); }
     { node: Road_Node; node.position = .{10,0,10}; n2 = spawn(node); }
@@ -30,12 +30,5 @@ generate_world :: () {
     connect_road_nodes(n4, n0);
     connect_road_nodes(n3, n1);
     connect_road_nodes(n2, n4);
-    connect_road_nodes(n1, n2);
-    //recalculate(n0);
+    connect_road_nodes(n1, n2);*/
 }
-
-/*******************************************************************************
-TODO:
-    - ignore MCB for blocks that exist(!!)
-    - probably reorder vertices for blocks
-*******************************************************************************/

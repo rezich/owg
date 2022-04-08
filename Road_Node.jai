@@ -12,15 +12,15 @@ spawn :: (using node: Road_Node) -> *Road_Node {
     return bucket_array_find_pointer(*road_nodes, bucket_array_add(*road_nodes, new_node));
 }
 render :: (using node: *Road_Node) {
-    DrawCircle3D(position, 0.5, .{1,0,0}, 90, DARKGREEN);
+    if connections.count == 0 then DrawCircle3D(position, 0.5, .{1,0,0}, 90, DARKGRAY);
     //DrawPoint3D(position, RED);
-    draw_axis(position, DARKGREEN);
+    //draw_axis(position, DARKGREEN);
 }
 render_2d :: (using node: *Road_Node) {
     offset_position := position + .{0, 0.25, 0};
     cstr := tcprint("%", id);
     pos := GetWorldToScreen(offset_position, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
-    DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
+    //DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
 }
 connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     if from == to then return false;
@@ -57,7 +57,8 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
             array_add(*path, to);
             array_add(*queue, path);
         }
-        while queue.count > 0 && found_path.count == 0 {
+        //while queue.count > 0 && found_path.count == 0 {
+        while queue.count > 0 && (found_path.count == 0 || queue.count < found_path.count) {
             v_path := array_copy(queue[0]);
             array_free(queue[0]);
             array_unordered_remove_by_index(*queue, 0);
@@ -228,21 +229,27 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
     }
     if connections.count == 1 {
         road := connections[0].road;
-        if road.start == position {
+        flipped := road.start != position;
+        if !flipped {
             array_reset(*road.left_start_vertices);
             array_reset(*road.right_start_vertices);
-            left := get_right_side(road);
+            left := get_left_side(road);
+            right := get_right_side(road);
+            array_add(*road.left_start_vertices, road.start);
+            array_add(*road.right_start_vertices, road.start);
             array_add(*road.left_start_vertices, left.start);
-            right := get_left_side(road);
             array_add(*road.right_start_vertices, right.start);
+            
         }
         else {
             array_reset(*road.left_end_vertices);
             array_reset(*road.right_end_vertices);
-            left := get_right_side(road);
+            left := get_left_side(road);
+            right := get_right_side(road);
             array_add(*road.left_end_vertices, left.end);
-            right := get_left_side(road);
             array_add(*road.right_end_vertices, right.end);
+            array_add(*road.left_end_vertices, road.end);
+            array_add(*road.right_end_vertices, road.end);
         }
     }
     else for 0..connections.count-1 {
@@ -251,24 +258,25 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
         right_vertices: *[..] Vector3;
         conn_left: *Road_Connection;
         conn_right: *Road_Connection;
-        if road.start == position {
+        flipped := road.start != position;
+        conn_left = *connections[ifx it == 0 then connections.count-1 else it-1];
+        conn_right = *connections[ifx it == connections.count-1 then 0 else it+1];
+        if !flipped {
             left_vertices = *road.left_start_vertices;
             right_vertices = *road.right_start_vertices;
-            conn_left = *connections[ifx it == connections.count-1 then 0 else it+1];
-            conn_right = *connections[ifx it == 0 then connections.count-1 else it-1];
         }
         else {
             left_vertices = *road.left_end_vertices;
             right_vertices = *road.right_end_vertices;
-            conn_left = *connections[ifx it == 0 then connections.count-1 else it-1];
-            conn_right = *connections[ifx it == connections.count-1 then 0 else it+1];
         }
         array_reset(left_vertices);
         array_reset(right_vertices);
         {
-            a := get_right_side_infinity(road);
-            conn := conn_left;
-            b := ifx conn.road.start != road.start && it != 0 then get_right_side_infinity(conn.road) else get_left_side_infinity(conn.road);
+            conn := ifx flipped then conn_right else conn_left;
+            conn_flipped := conn.road.start != position;
+            which := xor(!conn_flipped, flipped);
+            a := get_left_side_infinity(road);
+            b := ifx which then get_right_side_infinity(conn.road) else get_left_side_infinity(conn.road);
             new_vertex: Vector2;
             if CheckCollisionLines(
                 xy(a.start.x, a.start.z),
@@ -281,9 +289,11 @@ recalculate :: (using node: *Road_Node, recalculate_connected: bool = false) {
             }
         }
         {
-            a := get_left_side_infinity(road);
-            conn := conn_right;
-            b := ifx conn.road.start != road.start && it != connections.count-1 then get_left_side_infinity(conn.road) else get_right_side_infinity(conn.road);
+            conn := ifx flipped then conn_left else conn_right;
+            conn_flipped := conn.road.start != position;
+            which := xor(!conn_flipped, flipped);
+            a := get_right_side_infinity(road);
+            b := ifx which then get_left_side_infinity(conn.road) else get_right_side_infinity(conn.road);
             new_vertex: Vector2;
             if CheckCollisionLines(
                 xy(a.start.x, a.start.z),

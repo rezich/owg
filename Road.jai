@@ -27,57 +27,61 @@ simulate :: (using road: *Road, dt: float) {
 }
 
 render :: (using road: *Road) {
-    DrawLine3D(start, end, GRAY);
+    //DrawLine3D(start, end, GRAY);
+    //midpoint := ((start + end) * 0.5);
+    //DrawLine3D(start, midpoint, BEIGE);
+    //DrawLine3D(midpoint, end, DARKGRAY);
 
-    /*length := cast(int) floor(distance(xy(start.x, start.z), xy(end.x, end.z)));
+    length := cast(int) floor(distance(xy(start.x, start.z), xy(end.x, end.z)));
     theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
-    offset := xyz(cos(theta)*(display_width/2), 0, sin(theta)*(display_width/2));*/
+    offset := xyz(cos(theta)*(width/2), 0, sin(theta)*(width/2));
     /*for 0..length
     {
         p := lerp(start, end, cast(float) it / cast(float) length);
         DrawLine3D(p+offset, p-offset, MAGENTA);
     }*/
 
-    //DrawLine3D(start+offset, end+offset, DARKGRAY);
-    //DrawLine3D(start-offset, end-offset, DARKGRAY);
-
-    /*left_vertices: [..] Vector3;
-    right_vertices: [..] Vector3;
-    for left_start_vertices array_add(*left_vertices, it);
-    for left_end_vertices array_add(*left_vertices, it);
-    for right_start_vertices array_add(*right_vertices, it);
-    for right_end_vertices array_add(*right_vertices, it);
-    for 0..left_vertices.count-2 DrawLine3D(left_vertices[it], left_vertices[it+1], .{0,255,255,255});
-    for 0..right_vertices.count-2 DrawLine3D(right_vertices[it], right_vertices[it+1], .{255,255,0,255});
-    array_free(left_vertices);
-    array_free(right_vertices);*/
-    
-    if left_start_vertices.count>0 {
-        for 0..left_start_vertices.count-1 {
-            a := left_start_vertices[it];
-            b := ifx it+1 == left_start_vertices.count then ((start + end) * 0.5) else left_start_vertices[it+1];
-            DrawLine3D(a, b, RED);
-        }
+    DRAW_ROADS :: true;
+    #if DRAW_ROADS {
+        left_vertices: [..] Vector3;
+        right_vertices: [..] Vector3;
+        for left_start_vertices array_add(*left_vertices, it);
+        for left_end_vertices array_add(*left_vertices, it);
+        for right_start_vertices array_add(*right_vertices, it);
+        for right_end_vertices array_add(*right_vertices, it);
+        for 0..left_vertices.count-2 DrawLine3D(left_vertices[it], left_vertices[it+1], DARKGRAY);
+        for 0..right_vertices.count-2 DrawLine3D(right_vertices[it], right_vertices[it+1], DARKGRAY);
+        array_free(left_vertices);
+        array_free(right_vertices);
     }
-    if left_end_vertices.count>0 {
-        for 0..left_end_vertices.count-1 {
-            a := left_end_vertices[it];
-            b := ifx it+1 == left_end_vertices.count then ((start + end) * 0.5) else left_end_vertices[it+1];
-            DrawLine3D(a, b, YELLOW);
+    else {
+        if left_start_vertices.count>0 {
+            for 0..left_start_vertices.count-1 {
+                a := left_start_vertices[it];
+                b := ifx it+1 == left_start_vertices.count then ((start + end) * 0.5)+offset else left_start_vertices[it+1];
+                DrawLine3D(a, b, RED);
+            }
         }
-    }
-    if right_start_vertices.count>0 {
-        for 0..right_start_vertices.count-1 {
-            a := right_start_vertices[it];
-            b := ifx it+1 == right_start_vertices.count then ((start + end) * 0.5) else right_start_vertices[it+1];
-            DrawLine3D(a, b, LIME);
+        if left_end_vertices.count>0 {
+            for 0..left_end_vertices.count-1 {
+                a := left_end_vertices[it];
+                b := ifx it+1 == left_end_vertices.count then ((start + end) * 0.5)+offset else left_end_vertices[it+1];
+                DrawLine3D(a, b, YELLOW);
+            }
         }
-    }
-    if right_end_vertices.count>0 {
-        for 0..right_end_vertices.count-1 {
-            a := right_end_vertices[it];
-            b := ifx it+1 == right_end_vertices.count then ((start + end) * 0.5) else right_end_vertices[it+1];
-            DrawLine3D(a, b, SKYBLUE);
+        if right_start_vertices.count>0 {
+            for 0..right_start_vertices.count-1 {
+                a := right_start_vertices[it];
+                b := ifx it+1 == right_start_vertices.count then ((start + end) * 0.5)-offset else right_start_vertices[it+1];
+                DrawLine3D(a, b, LIME);
+            }
+        }
+        if right_end_vertices.count>0 {
+            for 0..right_end_vertices.count-1 {
+                a := right_end_vertices[it];
+                b := ifx it+1 == right_end_vertices.count then ((start + end) * 0.5)-offset else right_end_vertices[it+1];
+                DrawLine3D(a, b, SKYBLUE);
+            }
         }
     }
     //DrawSphereWires(end, 0.25, 4, 4, RED);

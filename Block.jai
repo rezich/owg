@@ -104,76 +104,41 @@ calculate_inner_polygon :: (using block: *Block) {
         next_node := road_nodes[(it+1) % road_nodes.count];
         for node.connections {
             if it.to == next_node {
-                array_add(*connected_roads, it.road);
-            }
-        }
-    }
-    for connected_roads {
-        using it;
-        theta := atan2(end.z-start.z, end.x-start.x) + PI/2;
-        offset := xyz(cos(theta)*(width/2), 0, sin(theta)*(width/2));
-        midpoint1 := ((start+offset + end+offset) * 0.5);
-        midpoint2 := ((start-offset + end-offset) * 0.5);
-        if distance(midpoint1, road_centroid) < distance(midpoint2, road_centroid) {
-            array_add(*segs, seg(start+offset, end+offset));
-        }
-        else {
-            array_add(*segs, seg(start-offset, end-offset));
-        }
-    }
-    //TODO: replace this with something less ridiculous that only checks connected segments & makes a joint if they don't overlap
-    for first_it: 0..segs.count-1 {
-        first_seg := segs[first_it];
-        for second_it: 0..segs.count-1 {
-            if first_it == second_it then continue;
-            second_seg := segs[second_it];
-            new_vertex: Vector2;
-            if CheckCollisionLines(
-                xy(first_seg.start.x, first_seg.start.z),
-                xy(first_seg.end.x, first_seg.end.z),
-                xy(second_seg.start.x, second_seg.start.z),
-                xy(second_seg.end.x, second_seg.end.z),
-                *new_vertex
-            ) {
-                found := false;
-                for vertices {
-                    vertex_2d := xy(it.x, it.z);
-                    if vertex_2d == new_vertex {
-                        found = true;
-                        break;
+                using it.road;
+                //backwards := (it.to.position != it.road.end) ^ (node.position != it.road.start);
+                /*backwards := node.position != it.road.start || it.to.position != it.road.end;
+                if backwards {
+                    for < left_end_vertices array_add(*vertices, it);
+                    for < left_start_vertices array_add(*vertices, it);
+                }
+                else {
+                    for right_start_vertices array_add(*vertices, it);
+                    for right_end_vertices array_add(*vertices, it);
+                }*/
+                backwards := node.position != it.road.start;
+                backwards2 := false; //it.to.position != it.road.end;
+                if !backwards2 {
+                    if backwards {
+                        for < left_end_vertices array_add(*vertices, it);
+                        for < left_start_vertices array_add(*vertices, it);
+                    }
+                    else {
+                        for right_start_vertices array_add(*vertices, it);
+                        for right_end_vertices array_add(*vertices, it);
                     }
                 }
-                if !found {
-                    array_add(*vertices, xyz(new_vertex.x, 0, new_vertex.y)); //TODO: 0??
+                else {
+                    if backwards {
+                        for < right_end_vertices array_add(*vertices, it);
+                        for < right_start_vertices array_add(*vertices, it);
+                    }
+                    else {
+                        for left_start_vertices array_add(*vertices, it);
+                        for left_end_vertices array_add(*vertices, it);
+                    }
                 }
+                break;
             }
-            else {
-                //TODO: concave polygons, somehow
-            }
-        }
-    }
-    // bubble_sort (can't use bubble_sort directly Because No Closures)
-    {
-        count := vertices.count;
-        last_j := count-2;
-        first_j := 0;
-        while true {
-            latest_swap := -1;
-            first_swap  := -1;
-            for j : first_j..last_j {
-                a := vertices[j];
-                b := vertices[j+1];
-                compare := ifx atan2(a.z - road_centroid.z, a.x - road_centroid.x) > atan2(b.z-road_centroid.z, b.x-road_centroid.x) then -1 else 1;
-                if compare > 0 {
-                    vertices[j]   = b;
-                    vertices[j+1] = a;
-                    latest_swap = j;
-                    if first_swap == -1  first_swap = j;
-                }
-            }
-            if latest_swap == -1 break;
-            last_j = latest_swap - 1;
-            first_j = max(first_swap-1, 0);
         }
     }
 }

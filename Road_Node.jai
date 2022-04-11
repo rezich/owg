@@ -20,7 +20,7 @@ render_2d :: (using node: *Road_Node) {
     offset_position := position + .{0, 0.25, 0};
     cstr := tcprint("%", id);
     pos := GetWorldToScreen(offset_position, game.camera) - MeasureTextEx(the_font, cstr, xx the_font.baseSize, 1)*0.5;
-    //DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
+    DrawTextEx(the_font, cstr, pos, xx the_font.baseSize, 1, GREEN);
 }
 connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
     if from == to then return false;
@@ -43,7 +43,7 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
 
 
 
-    GENERATE_BLOCKS :: false;
+    GENERATE_BLOCKS :: true;
     #if GENERATE_BLOCKS {
         // now let's see if we need to make a Block (MCB)
         Node_Path :: [..] *Road_Node;
@@ -66,8 +66,31 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
             for v.connections {
                 w := it.to;
                 if w == from && v_path.count > 2 && w != v_path[v_path.count-2] && (found_path.count == 0 || v_path.count < found_path.count) {
-                    array_copy(*found_path, v_path);
-                    continue;
+                    new_block_contains_another_block := false;
+                    for block: blocks {
+                        inside := false;
+                        for 0..v_path.count-1 {
+                            node := v_path[it];
+                            next := v_path[(it+1) % v_path.count];
+                            x := block.centroid.x; y := block.centroid.z;
+                            xi := node.position.x; yi := node.position.z;
+                            xj := next.position.x; yj := next.position.z;
+                            intersect := ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                            if intersect then inside = !inside;
+                        }
+                        if inside {
+                            new_block_contains_another_block = true;
+                            break;
+                        }
+                    }
+                    if !new_block_contains_another_block {
+                        array_copy(*found_path, v_path);
+                        continue;
+                    }
+                    else {
+                        log("new block contained another block, trying again...");
+                        continue;
+                    }
                 }
                 in_v_path, _ := array_find(v_path, w);
                 if !in_v_path {
@@ -86,7 +109,8 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
             for found_path log("%", it.id);
             //TODO: sort found_path clockwise?
             found_block := false;
-            for block: blocks {
+            // if we need this, then we need to move it into the logic above
+            /*for block: blocks {
                 if block.road_nodes.count != found_path.count then continue;
                 found_start := false;
                 start: int;
@@ -125,59 +149,21 @@ connect_road_nodes :: (from: *Road_Node, to: *Road_Node) -> bool {
                     found_block = true;
                     break;
                 }
-            }
+            }*/
 
             if !found_block {
-                new_block_contains_another_block := false;
-                for block: blocks {
-                    inside := false;
-                    for 0..found_path.count-1 {
-                        node := found_path[it];
-                        next := found_path[(it+1) % found_path.count];
-                        x := block.centroid.x; y := block.centroid.z;
-                        xi := node.position.x; yi := node.position.z;
-                        xj := next.position.x; yj := node.position.z;
-                        intersect := ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                        if intersect then {
-                            ANY_INTERSECTION_FAILS :: true;
-                            #if ANY_INTERSECTION_FAILS {
-                                inside = true;
-                                break;
-                            }
-                            else inside = !inside;
-                            
-                        }
-                    }
-                    if inside {
-                        new_block_contains_another_block = true;
-                        break;
-                    }
+                log("adding block");
+                block: Block;
+                block.height = TEMP_BLOCK_HEIGHT;
+                block.type = cast(Block_Type) (blocks.count % get_enum_count(Block_Type)); //TEMP
+                for 0..found_path.count-1 {
+                    node := found_path[it];
+                    array_add(*block.road_nodes, node);
                 }
-                if new_block_contains_another_block {
-                    log("whoops, nevermind, that block contains another block");
-                }
-                else {
-                    log("adding block");
-                    block: Block;
-                    block.height = TEMP_BLOCK_HEIGHT;
-                    block.type = cast(Block_Type) (blocks.count % get_enum_count(Block_Type)); //TEMP
-                    for 0..found_path.count-1 {
-                        node := found_path[it];
-                        /*next_node := found_path[(it+1) % found_path.count];
-                        for node.connections {
-                            if it.to.id == next_node.id {
-                                array_add(*block.roads, it.road);
-                                break;
-                            }
-                            array_add(*block.road_vertices, node.position);
-                        }*/
-                        array_add(*block.road_nodes, node);
-                    }
-                    recalculate(*block);
-                    added_block := spawn(block);
-                    for found_path array_add(*it.connected_blocks, added_block);
-                    report_blocks();
-                }
+                recalculate(*block);
+                added_block := spawn(block);
+                for found_path array_add(*it.connected_blocks, added_block);
+                report_blocks();
             }
         }
         array_free(found_path);

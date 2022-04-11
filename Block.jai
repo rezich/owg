@@ -51,7 +51,7 @@ get_block_color :: (using block: *Block) -> Color {
     }
 }
 
-do_block_calculations :: (using block: *Block) {
+recalculate :: (using block: *Block) {
     calculate_inner_polygon(block);
     centroid = calculate_centroid(vertices);
 }

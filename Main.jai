@@ -25,6 +25,7 @@ the_font: Font;
 #load "Input.jai";
 #load "Entity.jai";
 #load "Worldgen.jai";
+#load "Triangulate.jai";
 #load "Util.jai";
 
 #import "Math";

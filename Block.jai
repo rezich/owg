@@ -1,11 +1,12 @@
 Block :: struct {
-    id:             int;
-    type:           Block_Type;
-    road_nodes:     [..] *Road_Node;
-    vertices:       [..] Vector3;
-    centroid:       Vector3;
-    height: float;
-    display_height: float;
+    id:                int;
+    type:              Block_Type;
+    road_nodes:        [..] *Road_Node;
+    vertices:          [..] Vector3;
+    triangles:         [..] Triangle;
+    centroid:          Vector3;
+    height:            float;
+    display_height:    float;
 }
 blocks: Bucket_Array(Block, 1000, true);
 Block_Type :: enum { RESIDENTIAL; COMMERCIAL; INDUSTRIAL; }
@@ -21,7 +22,7 @@ simulate :: (using block: *Block, dt: float) {
 }
 
 render :: (using block: *Block) {
-    for 0..vertices.count-1 {
+    /*for 0..vertices.count-1 {
         start := vertices[it];
         end := vertices[(it+1) % vertices.count];
         offset_bottom := Vector3.{0, 0, 0};
@@ -30,7 +31,8 @@ render :: (using block: *Block) {
         DrawLine3D(start+offset_bottom, end+offset_bottom, color);
         DrawLine3D(start+offset_top, end+offset_top, color);
         DrawLine3D(start+offset_bottom, start+offset_top, color);
-    }
+    }*/
+    for triangles DrawTriangle3D(vertices[it.a], vertices[it.b], vertices[it.c], RED);
 }
 
 render_2d :: (using block: *Block) {
@@ -54,6 +56,10 @@ get_block_color :: (using block: *Block) -> Color {
 recalculate :: (using block: *Block) {
     calculate_inner_polygon(block);
     centroid = calculate_centroid(vertices);
+    block_triangluate(block);
+    log("-- triangles --");
+    for triangles log("% % %", vertices[it.a], vertices[it.b], vertices[it.c]);
+    log("---------------");
 }
 
 calculate_centroid :: (vertices: [] Vector3) -> Vector3 {
@@ -84,6 +90,7 @@ seg :: make_line_segment;
 
 //TODO: make this work in all cases instead of just the naive ones
 calculate_inner_polygon :: (using block: *Block) {
+    
     array_reset(*vertices);
     road_vertices: [..] Vector3;
     for 0..road_nodes.count-1 {
@@ -91,7 +98,7 @@ calculate_inner_polygon :: (using block: *Block) {
         next_node := road_nodes[(it+1) % road_nodes.count];
         for node.connections {
             if it.to == next_node {
-                array_add(*road_vertices, node.position);
+                array_add_if_not_prev_or_first(*road_vertices, node.position);
                 break;
             }
         }
@@ -119,28 +126,32 @@ calculate_inner_polygon :: (using block: *Block) {
                 backwards2 := false; //it.to.position != it.road.end;
                 if !backwards2 {
                     if backwards {
-                        for < left_end_vertices array_add(*vertices, it);
-                        for < left_start_vertices array_add(*vertices, it);
+                        for < left_end_vertices array_add_if_not_prev_or_first(*vertices, it);
+                        for < left_start_vertices array_add_if_not_prev_or_first(*vertices, it);
                     }
                     else {
-                        for right_start_vertices array_add(*vertices, it);
-                        for right_end_vertices array_add(*vertices, it);
+                        for right_start_vertices array_add_if_not_prev_or_first(*vertices, it);
+                        for right_end_vertices array_add_if_not_prev_or_first(*vertices, it);
                     }
                 }
                 else {
                     if backwards {
-                        for < right_end_vertices array_add(*vertices, it);
-                        for < right_start_vertices array_add(*vertices, it);
+                        for < right_end_vertices array_add_if_not_prev_or_first(*vertices, it);
+                        for < right_start_vertices array_add_if_not_prev_or_first(*vertices, it);
                     }
                     else {
-                        for left_start_vertices array_add(*vertices, it);
-                        for left_end_vertices array_add(*vertices, it);
+                        for left_start_vertices array_add_if_not_prev_or_first(*vertices, it);
+                        for left_end_vertices array_add_if_not_prev_or_first(*vertices, it);
                     }
                 }
                 break;
             }
         }
     }
+}
+
+array_add_if_not_prev_or_first :: inline (array: *[..] $T, item: T) {
+    if array.count == 0 || ((<<array)[array.count-1] != item && (<<array)[0] != item) then array_add(array, item);
 }
 
 report_blocks :: () {
@@ -150,6 +161,17 @@ report_blocks :: () {
         for it.road_nodes print_to_builder(*sb, "% ", it.id);
         log("---\nBLOCK %: %", it.id, builder_to_string(*sb));
     }
+}
+
+Triangle :: struct {
+    a, b, c: int;
+}
+tri :: (a: int, b: int, c: int) -> Triangle {
+    t: Triangle;
+    t.a = a;
+    t.b = b;
+    t.c = c;
+    return t;
 }
 
 TEMP_BLOCK_HEIGHT :: 1;
